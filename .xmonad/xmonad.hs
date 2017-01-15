@@ -22,9 +22,14 @@ main = xmonad =<< xmobar desktopConfig
     , workspaces = ["1", "2", "3"]
     }
 
-myKeys conf@(XConfig {XMonad.modMask = modm}) = M.fromList
+myKeys conf@XConfig {XMonad.modMask = modm} = M.fromList
             [ ((modm, xK_u), windows W.focusDown)
             , ((modm, xK_e), windows W.focusUp)
+            , ((modm .|. shiftMask, xK_u), windows W.swapDown)
+            , ((modm .|. shiftMask, xK_e), windows W.swapUp)
             , ((modm, xK_h), nextWS)
             , ((modm, xK_t), prevWS)
+            , ((modm, xK_l), withFocused $ windows . W.sink)
+            , ((modm, xK_i), sendMessage Shrink)
+            , ((modm, xK_d), sendMessage Expand)
             ]
