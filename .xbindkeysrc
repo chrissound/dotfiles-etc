@@ -57,6 +57,13 @@
 ##################################
 # End of xbindkeys configuration #
 ##################################
-"maim -s ~/Screenshots/$(date +%F-%T).png"
+"~/Scripts/screenshot.sh"
     m:0x0 + c:107
     Print
+"~/.screenlayout/3840_2160_single.sh"
+    m:0x0 + c:74
+    F8
+"~/.screenlayout/1920_1080_single.sh"
+    m:0x0 + c:73
+    F7
+
