@@ -4,26 +4,26 @@
 
 import qualified Data.Map                         as M
 import           XMonad
-import           XMonad.Actions.CycleWS
 import           XMonad.Actions.Navigation2D
 import           XMonad.Config.Desktop
-import           XMonad.Layout.ResizableTile
 import qualified XMonad.StackSet                  as W
-
-import qualified Data.Map.Strict                  as Map
-import           FocusWindow
 import           MiddleColumn
+import qualified Data.Map.Strict                  as Map
 import           System.Process
+import           XMonad.Actions.CopyWindow
 import           XMonad.Actions.DynamicWorkspaces
 import           XMonad.Actions.GridSelect
 import           XMonad.Actions.UpdatePointer
 import           XMonad.Hooks.EwmhDesktops
 import           XMonad.Hooks.FloatNext
 import           XMonad.Layout.Spacing
-import           XMonad.Layout.ThreeColumns
-import           XMonad.Prompt
-import           XMonad.Prompt.Workspace          (workspacePrompt)
-import qualified XMonad.Util.ExtensibleState      as XS
+import XMonad.Hooks.ManageDocks
+import XMonad.Layout.MultiToggle
+import XMonad.Layout.MultiToggle.Instances
+import XMonad.Actions.CycleWS
+
+defaultThreeColumn :: (Float, Float, Float)
+defaultThreeColumn = (0.15, 0.65, 0.2)
 
 main :: IO ()
 main = xmonad $ ewmh $ navigation2D def
@@ -42,27 +42,24 @@ main = xmonad $ ewmh $ navigation2D def
     , keys = myKeys <+> keys def
     , workspaces = [
          "1 (Core)"
-        ,"2 (Etc)"
-        ,"3 (Work)"
-        ,"4 (CCreator)"
-        ,"5 (ReportMan)"
-        ,"6 (IDE)"
-        ,"7 (???)"
+        ,"2 (Work)"
+        ,"3 (Email)"
+        ,"4 (Net)"
+        ,"5 (Distr)"
+        ,"6 (Distr 2)"
+        ,"7 (Net 2)"
+        ,"8 (Work 2)"
     ]
     , layoutHook = desktopLayoutModifiers $
-      (spacing 3 (MiddleColumn 0.25 1 0.040 0.25)) |||
-      spacing 3 (MiddleColumn 0.25 1 0.040 0.5) |||
-      spacing 3 (MiddleColumn 0.25 1 0.040 0.75) |||
-      spacing 3 (MiddleColumn 0.25 1 0.040 0.33) |||
-      ThreeCol 1 (3/100) (1/2) |||
-      ResizableTall 2 (5/100) (1/2) [0.3, 0.5, 2] |||
-      tallLayout |||
-      Full
+      mkToggle (single FULL) (
+        spacing 3 (getMiddleColumnSaneDefault 2 0.15 defaultThreeColumn) |||
+        spacing 3 (getMiddleColumnSaneDefault 2 0.5 defaultThreeColumn) |||
+        spacing 3 (getMiddleColumnSaneDefault 3 0.75 (0.27333, 0.45333, 0.27333)) |||
+        spacing 3 (getMiddleColumnSaneDefault 3 0.75 (0.33333, 0.33333, 0.33333))
+      )
     , handleEventHook = handleEventHook def <+> fullscreenEventHook
     , manageHook = floatNextHook <+> manageHook desktopConfig
     }
-
-  where tallLayout = Tall 1 (5/100) (1/2)
 
 myKeys :: XConfig l -> M.Map (KeyMask, KeySym) (X ())
 myKeys conf@XConfig {XMonad.modMask = modm} =
@@ -71,41 +68,74 @@ myKeys conf@XConfig {XMonad.modMask = modm} =
   ++
     zip (zip (repeat (modm .|. shiftMask)) [xK_1..xK_9]) (map (withNthWorkspace W.shift) [0..])
   ++
-            [-- ((modm, xK_u), windows W.focusDown)
-            --, ((modm, xK_e), windows W.focusUp)
-            --, ((modm .|. shiftMask, xK_u), windows W.swapDown)
-            --, ((modm .|. shiftMask, xK_e), windows W.swapUp)
-              ((modm, xK_backslash), windows W.focusDown)
-            , ((modm, xK_g), goToSelected def)
-            , ((modm, xK_f), updatePointer (0.5, 0.5) (0, 0))
-            , ((modm, xK_e), prevWS)
-            , ((modm, xK_u), nextWS)
-            , ((modm, xK_l), withFocused $ windows . W.sink)
+            [
+            -- GridSelecet
+              ((modm, xK_g),               goToSelected def)
+            , ((modm .|. shiftMask, xK_g), bringSelected def)
+            -- RotateSlaves
+            , ((mod1Mask, xK_i), sendMessage IncrementLeftColumnContainerWidth)
+            , ((mod1Mask, xK_u), sendMessage DecrementLeftColumnContainerWidth)
+            , ((mod1Mask, xK_d), sendMessage IncrementRightColumnContainerWidth)
+            , ((mod1Mask, xK_h), sendMessage DecrementRightColumnContainerWidth)
+            , ((mod1Mask, xK_y), sendMessage ResetColumnContainerWidth)
+            -- Message sending
             , ((modm, xK_i), sendMessage Shrink)
             , ((modm, xK_d), sendMessage Expand)
-            , ((modm .|. shiftMask, xK_i), sendMessage MirrorShrink)
-            , ((modm .|. shiftMask, xK_d), sendMessage MirrorExpand)
-            , ((modm, xK_p),              spawn "rofi  -combi-modi run -show combi -modi combi")
-            , ((modm.|. shiftMask, xK_p), spawn "rofi  -combi-modi drun -show combi -modi combi")
+            , ((modm .|. shiftMask, xK_i), sendMessage SwopLeftColumn)
+            , ((modm .|. shiftMask, xK_d), sendMessage SwopRightColumn)
+            , ((mod1Mask, xK_r), sendMessage ResetColumn)
+            , ((modm , xK_period), sendMessage IncrementLeftColumnContainer)
+            , ((modm , xK_y), sendMessage IncrementRightColumnContainer)
+            , ((modm  .|. shiftMask, xK_y), sendMessage ResetColumnContainer)
+            , ((modm, xK_comma ), sendMessage (IncMasterN 1)) -- %! Increment the number of windows in the master area
+            , ((modm, xK_apostrophe), sendMessage (IncMasterN (-1))) -- %! Deincrement the number of windows in the master area
+            , ((modm, xK_b), sendMessage ToggleStruts)
+            , ((mod1Mask, xK_f), sendMessage $ Toggle FULL)
+            -- Rofi
+            , ((modm .|. shiftMask, xK_p),              spawn "rofi  -combi-modi run -show combi -modi combi")
+            , ((modm, xK_p), spawn "rofi  -combi-modi drun -show combi -modi combi")
             , ((modm, xK_w),              spawn "rofi  -combi-modi window -show combi -modi combi")
             , ((modm .|. shiftMask, xK_z), devSessionPrompt)
-            , ((modm .|. shiftMask .|. controlMask, xK_r), Main.renameWorkspace def)
-            , ((modm .|. shiftMask, xK_r), Main.renameWorkspace def)
-            --, ((modm .|. shiftMask, xK_r), devWorkspacePrompt)
+            -- Sticky window
+            , ((mod1Mask, xK_l), windows copyToAll) -- @@ Make focused window always visible
+            , ((mod1Mask, xK_c),  killAllOtherCopies) -- @@ Toggle window state back
+            -- Focus nth window
+            , ((modm .|. controlMask, xK_h), sendMessage $ FocusLeft (1 :: Int))
+            , ((modm .|. controlMask, xK_t), sendMessage $ FocusLeft (2 :: Int))
+            , ((modm .|. controlMask, xK_n), sendMessage $ FocusLeft (3 :: Int))
+            , ((modm .|. controlMask, xK_s), sendMessage $ FocusLeft (4 :: Int))
+            , ((modm .|. controlMask, xK_g), sendMessage $ FocusRight (1 :: Int))
+            , ((modm .|. controlMask, xK_c), sendMessage $ FocusRight (2 :: Int))
+ , ((modm .|. controlMask, xK_r), sendMessage $ FocusRight (3 :: Int))
+            , ((modm .|. controlMask, xK_l), sendMessage $ FocusRight (4 :: Int))
+            -- Swap master focus with nth window
+            , ((mod1Mask .|. shiftMask, xK_h), sendMessage $ SwopLeft (1 :: Int))
+            , ((mod1Mask .|. shiftMask, xK_t), sendMessage $ SwopLeft (2 :: Int))
+            , ((mod1Mask .|. shiftMask, xK_n), sendMessage $ SwopLeft (3 :: Int))
+            , ((mod1Mask .|. shiftMask, xK_s), sendMessage $ SwopLeft (4 :: Int))
+            , ((mod1Mask .|. shiftMask, xK_g), sendMessage $ SwopRight (1 :: Int))
+            , ((mod1Mask .|. shiftMask, xK_c), sendMessage $ SwopRight (2 :: Int))
+            , ((mod1Mask .|. shiftMask, xK_r), sendMessage $ SwopRight (3 :: Int))
+            , ((mod1Mask .|. shiftMask, xK_l), sendMessage $ SwopRight (4 :: Int))
+            , ((mod1Mask .|. shiftMask, xK_f), toggleFloatAllNew)
+            -- Dynamic workspaces
+            , ((modm .|. shiftMask, xK_r), renameWorkspace def)
             , ((modm .|. shiftMask, xK_a), addWorkspacePrompt def)
+            -- Workspace navigation
+            --, ((modm, xK_e), prevWS)
+            --, ((modm, xK_u), nextWS)
+            , ((modm, xK_e), moveTo Prev NonEmptyWS)
+            , ((modm, xK_u), moveTo Next NonEmptyWS)
+            -- Misc
             , ((modm, xK_slash), spawn $ XMonad.terminal conf)
+            , ((modm, xK_f), updatePointer (0.5, 0.5) (0, 0))
+            , ((modm, xK_l), withFocused $ windows . W.sink)
+            , ((mod1Mask, xK_F3), spawn "amixer -q sset Master 5%-")
+            , ((mod1Mask, xK_F4), spawn "amixer -q sset Master 5%+")
+            , ((mod1Mask, xK_F2), spawn "amixer -q sset Master toggle")
+            --, ((modm .|. shiftMask, xK_r), devWorkspacePrompt)
             --, ((modm, (fromIntegral button3)), (\w -> focus w >> Flex.mouseResizeWindow w))
             , ((modm, xK_backslash), windows W.focusDown)
-            , ((modm .|. controlMask, xK_h), windows (focusWindow 0))
-            , ((modm .|. controlMask, xK_t), windows (focusWindow 1))
-            , ((modm .|. controlMask, xK_n), windows (focusWindow 2))
-            , ((modm .|. controlMask, xK_s), windows (focusWindow 3))
-            , ((modm .|. controlMask, xK_g), windows (focusWindow 4))
-            , ((modm .|. controlMask, xK_c), windows (focusWindow 5))
-            , ((modm .|. controlMask, xK_r), windows (focusWindow 6))
-            , ((modm .|. controlMask, xK_l), windows (focusWindow 7))
-            , ((modm .|. controlMask, xK_z), focusWindowDraw)
-            , ((modm .|. controlMask, xK_f), toggleFloatAllNew)
             ]
 data DynamicWorkspaceState = DynamicWorkspaceState {workspaceIndexMap :: Map.Map WorkspaceIndex WorkspaceTag}
   deriving (Typeable, Read, Show)
@@ -116,24 +146,24 @@ type WorkspaceTag = String
 -- | The workspace index is mapped to a workspace tag by the user and
 -- can be updated.
 
-renameWorkspace :: XPConfig -> X ()
-renameWorkspace conf = do
-  let updateIndexMap old new = do
-          wmap <- XS.gets workspaceIndexMap
-          XS.modify $ \s -> s {workspaceIndexMap = Map.map (\t -> if t == old then new else t) wmap} :: DynamicWorkspaceState
-  workspacePrompt conf renameWorkspaceByName
-  x <- get
-  mapM_ (\x' -> do
-            let grrr = W.tag . W.workspace . W.current $ windowset x
-            let c = W.tag . W.workspace . W.current $ windowset x
-            updateIndexMap c (grrr ++ "("++show x' ++ ")")
-            ) ([1..length $ W.visible $ windowset x])
-  -- let wId = W.tag $ W.workspace $ W.current $ windowset x
-  -- z <- getWsIndex
-  -- liftIO $ appendFile "/tmp/xmonadChris\n" $ wId
-  -- case (z wId) of
-  --   Just x' -> renameWorkspaceByName $ "("++show (x' + 1) ++") " ++ wId
-  --   Nothing -> renameWorkspaceByName "erm"
+-- renameWorkspace :: XPConfig -> X ()
+-- renameWorkspace conf = do
+--   let updateIndexMap old new = do
+--           wmap <- XS.gets workspaceIndexMap
+--           XS.modify $ \s -> s {workspaceIndexMap = Map.map (\t -> if t == old then new else t) wmap} :: DynamicWorkspaceState
+--   workspacePrompt conf renameWorkspaceByName
+--   x <- get
+--   mapM_ (\x' -> do
+--             let grrr = W.tag . W.workspace . W.current $ windowset x
+--             let c = W.tag . W.workspace . W.current $ windowset x
+--             updateIndexMap c (grrr ++ "("++show x' ++ ")")
+--             ) ([1..length $ W.visible $ windowset x])
+--   -- let wId = W.tag $ W.workspace $ W.current $ windowset x
+--   -- z <- getWsIndex
+--   -- liftIO $ appendFile "/tmp/xmonadChris\n" $ wId
+--   -- case (z wId) of
+--   --   Just x' -> renameWorkspaceByName $ "("++show (x' + 1) ++") " ++ wId
+--   --   Nothing -> renameWorkspaceByName "erm"
 
 
 devSessionPrompt :: X ()
