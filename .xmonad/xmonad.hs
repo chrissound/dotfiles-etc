@@ -21,6 +21,9 @@ import XMonad.Hooks.ManageDocks
 import XMonad.Layout.MultiToggle
 import XMonad.Layout.MultiToggle.Instances
 import XMonad.Actions.CycleWS
+import XMonad.Actions.Submap
+import WindowColumn
+import WindowColumn as Column (Column(..))
 
 defaultThreeColumn :: (Float, Float, Float)
 defaultThreeColumn = (0.15, 0.65, 0.2)
@@ -72,23 +75,27 @@ myKeys conf@XConfig {XMonad.modMask = modm} =
             -- GridSelecet
               ((modm, xK_g),               goToSelected def)
             , ((modm .|. shiftMask, xK_g), bringSelected def)
-            -- RotateSlaves
+            -- Resize left / right column width individually
             , ((mod1Mask, xK_i), sendMessage IncrementLeftColumnContainerWidth)
             , ((mod1Mask, xK_u), sendMessage DecrementLeftColumnContainerWidth)
             , ((mod1Mask, xK_d), sendMessage IncrementRightColumnContainerWidth)
             , ((mod1Mask, xK_h), sendMessage DecrementRightColumnContainerWidth)
             , ((mod1Mask, xK_y), sendMessage ResetColumnContainerWidth)
-            -- Message sending
-            , ((modm, xK_i), sendMessage Shrink)
-            , ((modm, xK_d), sendMessage Expand)
-            , ((modm .|. shiftMask, xK_i), sendMessage SwopLeftColumn)
-            , ((modm .|. shiftMask, xK_d), sendMessage SwopRightColumn)
-            , ((mod1Mask, xK_r), sendMessage ResetColumn)
+            -- Modify column pin count
             , ((modm , xK_period), sendMessage IncrementLeftColumnContainer)
             , ((modm , xK_y), sendMessage IncrementRightColumnContainer)
             , ((modm  .|. shiftMask, xK_y), sendMessage ResetColumnContainer)
+            -- Modify master window count
             , ((modm, xK_comma ), sendMessage (IncMasterN 1)) -- %! Increment the number of windows in the master area
             , ((modm, xK_apostrophe), sendMessage (IncMasterN (-1))) -- %! Deincrement the number of windows in the master area
+            -- Swop column positions
+            , ((modm .|. shiftMask, xK_i), sendMessage SwopLeftColumn)
+            , ((modm .|. shiftMask, xK_d), sendMessage SwopRightColumn)
+            , ((mod1Mask, xK_r), sendMessage ResetColumn)
+            -- Modify main column width
+            , ((modm, xK_i), sendMessage Shrink)
+            , ((modm, xK_d), sendMessage Expand)
+            -- Message sending
             , ((modm, xK_b), sendMessage ToggleStruts)
             , ((mod1Mask, xK_f), sendMessage $ Toggle FULL)
             -- Rofi
@@ -106,9 +113,9 @@ myKeys conf@XConfig {XMonad.modMask = modm} =
             , ((modm .|. controlMask, xK_s), sendMessage $ FocusLeft (4 :: Int))
             , ((modm .|. controlMask, xK_g), sendMessage $ FocusRight (1 :: Int))
             , ((modm .|. controlMask, xK_c), sendMessage $ FocusRight (2 :: Int))
- , ((modm .|. controlMask, xK_r), sendMessage $ FocusRight (3 :: Int))
+            , ((modm .|. controlMask, xK_r), sendMessage $ FocusRight (3 :: Int))
             , ((modm .|. controlMask, xK_l), sendMessage $ FocusRight (4 :: Int))
-            -- Swap master focus with nth window
+            -- Swap master window with nth side window
             , ((mod1Mask .|. shiftMask, xK_h), sendMessage $ SwopLeft (1 :: Int))
             , ((mod1Mask .|. shiftMask, xK_t), sendMessage $ SwopLeft (2 :: Int))
             , ((mod1Mask .|. shiftMask, xK_n), sendMessage $ SwopLeft (3 :: Int))
@@ -117,7 +124,18 @@ myKeys conf@XConfig {XMonad.modMask = modm} =
             , ((mod1Mask .|. shiftMask, xK_c), sendMessage $ SwopRight (2 :: Int))
             , ((mod1Mask .|. shiftMask, xK_r), sendMessage $ SwopRight (3 :: Int))
             , ((mod1Mask .|. shiftMask, xK_l), sendMessage $ SwopRight (4 :: Int))
-            , ((mod1Mask .|. shiftMask, xK_f), toggleFloatAllNew)
+            --
+            , ((mod1Mask .|. shiftMask, xK_f), submap . M.fromList $
+                [ ((mod1Mask .|. shiftMask, xK_h), sendMessage $ SwopTo 1 2 Column.Left)
+                , ((mod1Mask .|. shiftMask, xK_t), sendMessage $ SwopTo 2 2 Column.Left)
+                , ((mod1Mask .|. shiftMask, xK_n), sendMessage $ SwopTo 3 2 Column.Left)
+                , ((mod1Mask .|. shiftMask, xK_s), sendMessage $ SwopTo 4 2 Column.Left)
+                , ((mod1Mask .|. shiftMask, xK_g), sendMessage $ SwopTo 1 2 Column.Right)
+                , ((mod1Mask .|. shiftMask, xK_c), sendMessage $ SwopTo 2 2 Column.Right)
+                , ((mod1Mask .|. shiftMask, xK_r), sendMessage $ SwopTo 3 2 Column.Right)
+                , ((mod1Mask .|. shiftMask, xK_l), sendMessage $ SwopTo 4 2 Column.Right)
+                ]
+            )
             -- Dynamic workspaces
             , ((modm .|. shiftMask, xK_r), renameWorkspace def)
             , ((modm .|. shiftMask, xK_a), addWorkspacePrompt def)
