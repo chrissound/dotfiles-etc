@@ -56,8 +56,8 @@ border_color_pressed = #000000 100
 
 #-------------------------------------
 # Panel
-panel_items = T
-panel_size = 100% 80
+panel_items = TS
+panel_size = 100% 60
 panel_margin = 0 0
 panel_padding = 2 0 2
 panel_background_id = 1
@@ -103,10 +103,10 @@ task_align = left
 # Task
 task_text = 1
 task_icon = 1
-task_centered = 1
+task_centered = 0
 urgent_nb_of_blink = 100000
-task_maximum_size = 80 35
-task_padding = 0 0 0
+task_maximum_size = 110 105
+task_padding = 0 10 8
 task_tooltip = 1
 task_font_color = #ffffff 100
 task_font =  Ubuntu Bold 16
@@ -123,7 +123,7 @@ mouse_scroll_down = iconify
 #-------------------------------------
 # System tray (notification area)
 systray_padding = 0 4 2
-systray_background_id = 0
+systray_background_id = 2
 systray_sort = ascending
 systray_icon_size = 96
 systray_icon_asb = 100 0 0

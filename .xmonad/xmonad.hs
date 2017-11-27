@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 
 import qualified Data.Map                         as M
 import           XMonad
@@ -15,7 +16,6 @@ import           XMonad.Actions.DynamicWorkspaces
 import           XMonad.Actions.GridSelect
 import           XMonad.Actions.UpdatePointer
 import           XMonad.Hooks.EwmhDesktops
-import           XMonad.Hooks.FloatNext
 import           XMonad.Layout.Spacing
 import XMonad.Hooks.ManageDocks
 import XMonad.Layout.MultiToggle
@@ -24,9 +24,24 @@ import XMonad.Actions.CycleWS
 import XMonad.Actions.Submap
 import WindowColumn
 import WindowColumn as Column (Column(..))
+import XMonad.Layout.SimpleDecoration
+import XMonad.Hooks.InsertPosition
+
+
+data TitleBars = TitleBars deriving (Read, Show, Eq, Typeable)
+instance Transformer TitleBars Window where
+    transform _ x k = k (Mirror x) (\(Mirror x') -> x')
 
 defaultThreeColumn :: (Float, Float, Float)
 defaultThreeColumn = (0.15, 0.65, 0.2)
+
+mySDConfig :: Theme
+mySDConfig = def { fontName = "xft:Droid Sans Mono for Powerline.otf: Droid Sans Mono for Powerline:style=Regular:size=14",
+  decoWidth = 3000
+  ,decoHeight = 30
+  , activeColor = "black"
+  , inactiveColor = "black"
+}
 
 main :: IO ()
 main = xmonad $ ewmh $ navigation2D def
@@ -46,22 +61,23 @@ main = xmonad $ ewmh $ navigation2D def
     , workspaces = [
          "1 (Core)"
         ,"2 (Work)"
-        ,"3 (Email)"
+        ,"3 (Work 2)"
         ,"4 (Net)"
-        ,"5 (Distr)"
-        ,"6 (Distr 2)"
-        ,"7 (Net 2)"
-        ,"8 (Work 2)"
+        ,"5 (Email)"
+        ,"6 (Distr)"
+        ,"7 (Distr 2)"
+        ,"8 (Net 2)"
     ]
+    --, layoutHook = simpleDeco shrinkText (mySDConfig) $ desktopLayoutModifiers $
     , layoutHook = desktopLayoutModifiers $
       mkToggle (single FULL) (
-        spacing 3 (getMiddleColumnSaneDefault 2 0.15 defaultThreeColumn) |||
+        spacing 3 (getMiddleColumnSaneDefault 2 0.2 defaultThreeColumn) |||
         spacing 3 (getMiddleColumnSaneDefault 2 0.5 defaultThreeColumn) |||
         spacing 3 (getMiddleColumnSaneDefault 3 0.75 (0.27333, 0.45333, 0.27333)) |||
         spacing 3 (getMiddleColumnSaneDefault 3 0.75 (0.33333, 0.33333, 0.33333))
       )
     , handleEventHook = handleEventHook def <+> fullscreenEventHook
-    , manageHook = floatNextHook <+> manageHook desktopConfig
+    , manageHook = insertPosition End Newer <+> manageHook desktopConfig
     }
 
 myKeys :: XConfig l -> M.Map (KeyMask, KeySym) (X ())
@@ -101,7 +117,7 @@ myKeys conf@XConfig {XMonad.modMask = modm} =
             -- Rofi
             , ((modm .|. shiftMask, xK_p),              spawn "rofi  -combi-modi run -show combi -modi combi")
             , ((modm, xK_p), spawn "rofi  -combi-modi drun -show combi -modi combi")
-            , ((modm, xK_w),              spawn "rofi  -combi-modi window -show combi -modi combi")
+            , ((modm .|. shiftMask, xK_w),              spawn "rofi  -combi-modi window -show combi -modi combi")
             , ((modm .|. shiftMask, xK_z), devSessionPrompt)
             -- Sticky window
             , ((mod1Mask, xK_l), windows copyToAll) -- @@ Make focused window always visible
@@ -126,14 +142,26 @@ myKeys conf@XConfig {XMonad.modMask = modm} =
             , ((mod1Mask .|. shiftMask, xK_l), sendMessage $ SwopRight (4 :: Int))
             --
             , ((mod1Mask .|. shiftMask, xK_f), submap . M.fromList $
-                [ ((mod1Mask .|. shiftMask, xK_h), sendMessage $ SwopTo 1 2 Column.Left)
-                , ((mod1Mask .|. shiftMask, xK_t), sendMessage $ SwopTo 2 2 Column.Left)
-                , ((mod1Mask .|. shiftMask, xK_n), sendMessage $ SwopTo 3 2 Column.Left)
-                , ((mod1Mask .|. shiftMask, xK_s), sendMessage $ SwopTo 4 2 Column.Left)
-                , ((mod1Mask .|. shiftMask, xK_g), sendMessage $ SwopTo 1 2 Column.Right)
-                , ((mod1Mask .|. shiftMask, xK_c), sendMessage $ SwopTo 2 2 Column.Right)
-                , ((mod1Mask .|. shiftMask, xK_r), sendMessage $ SwopTo 3 2 Column.Right)
-                , ((mod1Mask .|. shiftMask, xK_l), sendMessage $ SwopTo 4 2 Column.Right)
+                [ ((mod1Mask .|. shiftMask, xK_h), sendMessage $ SwopTo 1 1 Column.Left)
+                , ((mod1Mask .|. shiftMask, xK_t), sendMessage $ SwopTo 2 1 Column.Left)
+                , ((mod1Mask .|. shiftMask, xK_n), sendMessage $ SwopTo 3 1 Column.Left)
+                , ((mod1Mask .|. shiftMask, xK_s), sendMessage $ SwopTo 4 1 Column.Left)
+                , ((mod1Mask .|. shiftMask, xK_g), sendMessage $ SwopTo 1 1 Column.Right)
+                , ((mod1Mask .|. shiftMask, xK_c), sendMessage $ SwopTo 2 1 Column.Right)
+                , ((mod1Mask .|. shiftMask, xK_r), sendMessage $ SwopTo 3 1 Column.Right)
+                , ((mod1Mask .|. shiftMask, xK_l), sendMessage $ SwopTo 4 1 Column.Right)
+                ]
+            )
+            --
+            , ((modm, xK_w), submap . M.fromList $
+                [ ((modm, xK_a), withNthWorkspace W.greedyView 0)
+                , ((modm, xK_o), withNthWorkspace W.greedyView 1)
+                , ((modm, xK_e), withNthWorkspace W.greedyView 2)
+                , ((modm, xK_u), withNthWorkspace W.greedyView 3)
+                , ((modm, xK_h), withNthWorkspace W.greedyView 4)
+                , ((modm, xK_t), withNthWorkspace W.greedyView 4)
+                , ((modm, xK_n), withNthWorkspace W.greedyView 6)
+                , ((modm, xK_s), withNthWorkspace W.greedyView 7)
                 ]
             )
             -- Dynamic workspaces
