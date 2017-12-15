@@ -26,6 +26,7 @@ import WindowColumn
 import WindowColumn as Column (Column(..))
 import XMonad.Layout.SimpleDecoration
 import XMonad.Hooks.InsertPosition
+import XMonad.Actions.GroupNavigation
 
 
 data TitleBars = TitleBars deriving (Read, Show, Eq, Typeable)
@@ -68,16 +69,17 @@ main = xmonad $ ewmh $ navigation2D def
         ,"7 (Distr 2)"
         ,"8 (Net 2)"
     ]
-    --, layoutHook = simpleDeco shrinkText (mySDConfig) $ desktopLayoutModifiers $
-    , layoutHook = desktopLayoutModifiers $
+    , layoutHook = simpleDeco shrinkText (mySDConfig) $ desktopLayoutModifiers $
+    --, layoutHook = desktopLayoutModifiers $
       mkToggle (single FULL) (
-        spacing 3 (getMiddleColumnSaneDefault 2 0.2 defaultThreeColumn) |||
-        spacing 3 (getMiddleColumnSaneDefault 2 0.5 defaultThreeColumn) |||
-        spacing 3 (getMiddleColumnSaneDefault 3 0.75 (0.27333, 0.45333, 0.27333)) |||
-        spacing 3 (getMiddleColumnSaneDefault 3 0.75 (0.33333, 0.33333, 0.33333))
+        spacing 4 (getMiddleColumnSaneDefault 2 0.2 defaultThreeColumn) |||
+        spacing 4 (getMiddleColumnSaneDefault 2 0.5 defaultThreeColumn) |||
+        spacing 4 (getMiddleColumnSaneDefault 3 0.75 (0.27333, 0.45333, 0.27333)) |||
+        spacing 4 (getMiddleColumnSaneDefault 3 0.75 (0.33333, 0.33333, 0.33333))
       )
     , handleEventHook = handleEventHook def <+> fullscreenEventHook
     , manageHook = insertPosition End Newer <+> manageHook desktopConfig
+    , logHook = historyHook
     }
 
 myKeys :: XConfig l -> M.Map (KeyMask, KeySym) (X ())
@@ -89,39 +91,48 @@ myKeys conf@XConfig {XMonad.modMask = modm} =
   ++
             [
             -- GridSelecet
-              ((modm, xK_g),               goToSelected def)
-            , ((modm .|. shiftMask, xK_g), bringSelected def)
             -- Resize left / right column width individually
-            , ((mod1Mask, xK_i), sendMessage IncrementLeftColumnContainerWidth)
+              ((mod1Mask, xK_i), sendMessage IncrementLeftColumnContainerWidth)
             , ((mod1Mask, xK_u), sendMessage DecrementLeftColumnContainerWidth)
             , ((mod1Mask, xK_d), sendMessage IncrementRightColumnContainerWidth)
             , ((mod1Mask, xK_h), sendMessage DecrementRightColumnContainerWidth)
-            , ((mod1Mask, xK_y), sendMessage ResetColumnContainerWidth)
             -- Modify column pin count
             , ((modm , xK_period), sendMessage IncrementLeftColumnContainer)
             , ((modm , xK_y), sendMessage IncrementRightColumnContainer)
-            , ((modm  .|. shiftMask, xK_y), sendMessage ResetColumnContainer)
             -- Modify master window count
             , ((modm, xK_comma ), sendMessage (IncMasterN 1)) -- %! Increment the number of windows in the master area
             , ((modm, xK_apostrophe), sendMessage (IncMasterN (-1))) -- %! Deincrement the number of windows in the master area
             -- Swop column positions
             , ((modm .|. shiftMask, xK_i), sendMessage SwopLeftColumn)
             , ((modm .|. shiftMask, xK_d), sendMessage SwopRightColumn)
-            , ((mod1Mask, xK_r), sendMessage ResetColumn)
+            , ((mod1Mask, xK_r), submap . M.fromList $ [
+                  (singleKey xK_c, sendMessage ResetColumn)
+                , (singleKey xK_w, sendMessage ResetColumnContainerWidth)
+                , (singleKey xK_s, sendMessage ResetColumnContainer)
+                , (singleKey xK_g, goToSelected def)
+                , ((shiftMask, xK_g), bringSelected def)
+              ]
+              )
+            , ((modm, xK_s), submap . M.fromList $ [
+                (singleKey xK_b, sendMessage ToggleStruts)
+              , (singleKey xK_f, sendMessage $ Toggle FULL)
+              , (singleKey xK_z, devSessionPrompt)
+              , (singleKey xK_p, updatePointer (0.5, 0.5) (0, 0))
+              ]
+              )
             -- Modify main column width
             , ((modm, xK_i), sendMessage Shrink)
             , ((modm, xK_d), sendMessage Expand)
             -- Message sending
-            , ((modm, xK_b), sendMessage ToggleStruts)
-            , ((mod1Mask, xK_f), sendMessage $ Toggle FULL)
             -- Rofi
             , ((modm .|. shiftMask, xK_p),              spawn "rofi  -combi-modi run -show combi -modi combi")
             , ((modm, xK_p), spawn "rofi  -combi-modi drun -show combi -modi combi")
             , ((modm .|. shiftMask, xK_w),              spawn "rofi  -combi-modi window -show combi -modi combi")
-            , ((modm .|. shiftMask, xK_z), devSessionPrompt)
             -- Sticky window
             , ((mod1Mask, xK_l), windows copyToAll) -- @@ Make focused window always visible
             , ((mod1Mask, xK_c),  killAllOtherCopies) -- @@ Toggle window state back
+            -- Focus previous window
+            , ((modm, xK_b), nextMatch History (return True))
             -- Focus nth window
             , ((modm .|. controlMask, xK_h), sendMessage $ FocusLeft (1 :: Int))
             , ((modm .|. controlMask, xK_t), sendMessage $ FocusLeft (2 :: Int))
@@ -174,7 +185,6 @@ myKeys conf@XConfig {XMonad.modMask = modm} =
             , ((modm, xK_u), moveTo Next NonEmptyWS)
             -- Misc
             , ((modm, xK_slash), spawn $ XMonad.terminal conf)
-            , ((modm, xK_f), updatePointer (0.5, 0.5) (0, 0))
             , ((modm, xK_l), withFocused $ windows . W.sink)
             , ((mod1Mask, xK_F3), spawn "amixer -q sset Master 5%-")
             , ((mod1Mask, xK_F4), spawn "amixer -q sset Master 5%+")
@@ -211,6 +221,8 @@ type WorkspaceTag = String
 --   --   Just x' -> renameWorkspaceByName $ "("++show (x' + 1) ++") " ++ wId
 --   --   Nothing -> renameWorkspaceByName "erm"
 
+singleKey :: b -> (KeyMask, b)
+singleKey = (,) noModMask
 
 devSessionPrompt :: X ()
 devSessionPrompt = spawn "rofi -normal-window -show fb -modi fb:~/Scripts/rofi/xmonadRofi.sh"
