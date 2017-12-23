@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# OPTIONS -Wno-incomplete-patterns #-}
 
 import qualified Data.Map                         as M
 import           XMonad
@@ -27,6 +28,7 @@ import WindowColumn as Column (Column(..))
 import XMonad.Layout.SimpleDecoration
 import XMonad.Hooks.InsertPosition
 import XMonad.Actions.GroupNavigation
+import Data.Monoid
 
 
 data TitleBars = TitleBars deriving (Read, Show, Eq, Typeable)
@@ -44,6 +46,26 @@ mySDConfig = def { fontName = "xft:Droid Sans Mono for Powerline.otf: Droid Sans
   , inactiveColor = "black"
 }
 
+myManageHook :: Query (Data.Monoid.Endo WindowSet)
+myManageHook = composeAll
+    [ className =? "Gxmessage"      --> doFloat <+> doIgnore
+    , className =? "Emacs"          --> doF W.swapMaster 
+    , className =? "Thunderbird"    --> doShift ( myWorkspaces !! 4)
+    , className =? "Enpass-Desktop"    --> doShift ( myWorkspaces !! 0)
+    ]
+
+myWorkspaces :: [String]
+myWorkspaces = [
+         "1 (Core)"
+        ,"2 (Work)"
+        ,"3 (Work 2)"
+        ,"4 (Net)"
+        ,"5 (Email)"
+        ,"6 (Distr)"
+        ,"7 (Distr 2)"
+        ,"8 (Net 2)"
+    ]
+
 main :: IO ()
 main = xmonad $ ewmh $ navigation2D def
   (xK_k, xK_h, xK_j, xK_l)
@@ -59,16 +81,7 @@ main = xmonad $ ewmh $ navigation2D def
     , focusedBorderColor = "#00FF00"
     , modMask     = mod4Mask
     , keys = myKeys <+> keys def
-    , workspaces = [
-         "1 (Core)"
-        ,"2 (Work)"
-        ,"3 (Work 2)"
-        ,"4 (Net)"
-        ,"5 (Email)"
-        ,"6 (Distr)"
-        ,"7 (Distr 2)"
-        ,"8 (Net 2)"
-    ]
+    , workspaces = myWorkspaces
     , layoutHook = simpleDeco shrinkText (mySDConfig) $ desktopLayoutModifiers $
     --, layoutHook = desktopLayoutModifiers $
       mkToggle (single FULL) (
@@ -78,7 +91,7 @@ main = xmonad $ ewmh $ navigation2D def
         spacing 4 (getMiddleColumnSaneDefault 3 0.75 (0.33333, 0.33333, 0.33333))
       )
     , handleEventHook = handleEventHook def <+> fullscreenEventHook
-    , manageHook = insertPosition End Newer <+> manageHook desktopConfig
+    , manageHook =  myManageHook <+> insertPosition End Newer <+> manageHook desktopConfig
     , logHook = historyHook
     }
 
@@ -90,9 +103,10 @@ myKeys conf@XConfig {XMonad.modMask = modm} =
     zip (zip (repeat (modm .|. shiftMask)) [xK_1..xK_9]) (map (withNthWorkspace W.shift) [0..])
   ++
             [
+              ((modm, xK_BackSpace), kill)
             -- GridSelecet
             -- Resize left / right column width individually
-              ((mod1Mask, xK_i), sendMessage IncrementLeftColumnContainerWidth)
+            , ((mod1Mask, xK_i), sendMessage IncrementLeftColumnContainerWidth)
             , ((mod1Mask, xK_u), sendMessage DecrementLeftColumnContainerWidth)
             , ((mod1Mask, xK_d), sendMessage IncrementRightColumnContainerWidth)
             , ((mod1Mask, xK_h), sendMessage DecrementRightColumnContainerWidth)
@@ -109,8 +123,6 @@ myKeys conf@XConfig {XMonad.modMask = modm} =
                   (singleKey xK_c, sendMessage ResetColumn)
                 , (singleKey xK_w, sendMessage ResetColumnContainerWidth)
                 , (singleKey xK_s, sendMessage ResetColumnContainer)
-                , (singleKey xK_g, goToSelected def)
-                , ((shiftMask, xK_g), bringSelected def)
               ]
               )
             , ((modm, xK_s), submap . M.fromList $ [
@@ -118,6 +130,9 @@ myKeys conf@XConfig {XMonad.modMask = modm} =
               , (singleKey xK_f, sendMessage $ Toggle FULL)
               , (singleKey xK_z, devSessionPrompt)
               , (singleKey xK_p, updatePointer (0.5, 0.5) (0, 0))
+              , (singleKey xK_c, showClipboardApp)
+              , (singleKey xK_g, goToSelected def)
+              , ((shiftMask, xK_g), bringSelected def)
               ]
               )
             -- Modify main column width
@@ -133,46 +148,54 @@ myKeys conf@XConfig {XMonad.modMask = modm} =
             , ((mod1Mask, xK_c),  killAllOtherCopies) -- @@ Toggle window state back
             -- Focus previous window
             , ((modm, xK_b), nextMatch History (return True))
-            -- Focus nth window
-            , ((modm .|. controlMask, xK_h), sendMessage $ FocusLeft (1 :: Int))
-            , ((modm .|. controlMask, xK_t), sendMessage $ FocusLeft (2 :: Int))
-            , ((modm .|. controlMask, xK_n), sendMessage $ FocusLeft (3 :: Int))
-            , ((modm .|. controlMask, xK_s), sendMessage $ FocusLeft (4 :: Int))
-            , ((modm .|. controlMask, xK_g), sendMessage $ FocusRight (1 :: Int))
-            , ((modm .|. controlMask, xK_c), sendMessage $ FocusRight (2 :: Int))
-            , ((modm .|. controlMask, xK_r), sendMessage $ FocusRight (3 :: Int))
-            , ((modm .|. controlMask, xK_l), sendMessage $ FocusRight (4 :: Int))
-            -- Swap master window with nth side window
-            , ((mod1Mask .|. shiftMask, xK_h), sendMessage $ SwopLeft (1 :: Int))
-            , ((mod1Mask .|. shiftMask, xK_t), sendMessage $ SwopLeft (2 :: Int))
-            , ((mod1Mask .|. shiftMask, xK_n), sendMessage $ SwopLeft (3 :: Int))
-            , ((mod1Mask .|. shiftMask, xK_s), sendMessage $ SwopLeft (4 :: Int))
-            , ((mod1Mask .|. shiftMask, xK_g), sendMessage $ SwopRight (1 :: Int))
-            , ((mod1Mask .|. shiftMask, xK_c), sendMessage $ SwopRight (2 :: Int))
-            , ((mod1Mask .|. shiftMask, xK_r), sendMessage $ SwopRight (3 :: Int))
-            , ((mod1Mask .|. shiftMask, xK_l), sendMessage $ SwopRight (4 :: Int))
             --
-            , ((mod1Mask .|. shiftMask, xK_f), submap . M.fromList $
-                [ ((mod1Mask .|. shiftMask, xK_h), sendMessage $ SwopTo 1 1 Column.Left)
-                , ((mod1Mask .|. shiftMask, xK_t), sendMessage $ SwopTo 2 1 Column.Left)
-                , ((mod1Mask .|. shiftMask, xK_n), sendMessage $ SwopTo 3 1 Column.Left)
-                , ((mod1Mask .|. shiftMask, xK_s), sendMessage $ SwopTo 4 1 Column.Left)
-                , ((mod1Mask .|. shiftMask, xK_g), sendMessage $ SwopTo 1 1 Column.Right)
-                , ((mod1Mask .|. shiftMask, xK_c), sendMessage $ SwopTo 2 1 Column.Right)
-                , ((mod1Mask .|. shiftMask, xK_r), sendMessage $ SwopTo 3 1 Column.Right)
-                , ((mod1Mask .|. shiftMask, xK_l), sendMessage $ SwopTo 4 1 Column.Right)
-                ]
+            , ((modm, xK_c), submap . M.fromList $
+                fmap
+                  (\(c, i) ->
+                    (singleKey (windowSelection c i), sendMessage $
+                      case c of
+                        Column.Left -> SwopLeft i
+                        Column.Right -> SwopRight i
+                        ))
+                  $ concat [
+                      fmap ((,) Column.Left) [1,2,3,4,5,6,7,8]
+                    , fmap ((,) Column.Right) [1,2,3,4,5,6,7,8]                        ]
+            )
+            , ((modm, xK_g), submap . M.fromList $
+                fmap
+                  (\(c, i) ->
+                    (singleKey (windowSelection c i), sendMessage $
+                      case c of
+                        Column.Left -> FocusLeft i
+                        Column.Right -> FocusRight i
+                        ))
+                  $ concat [
+                      fmap ((,) Column.Left) [1,2,3,4,5,6,7,8]
+                    , fmap ((,) Column.Right) [1,2,3,4,5,6,7,8]                        ]
+            )
+            , ((modm, xK_f), submap . M.fromList $
+                fmap
+                  (\(w, wi) ->
+                      (singleKey w, submap . M.fromList $ fmap
+                        (\(c, i) ->
+                          (singleKey (windowSelection c i), sendMessage $ SwopTo i wi c))
+                        $ concat [
+                            fmap ((,) Column.Left) [1,2,3,4,5,6,7,8]
+                          , fmap ((,) Column.Right) [1,2,3,4,5,6,7,8]                        ]
+                      )
+                  )
+                  [(w1, 1), (w2, 2), (w3, 3)]
             )
             --
             , ((modm, xK_w), submap . M.fromList $
-                [ ((modm, xK_a), withNthWorkspace W.greedyView 0)
-                , ((modm, xK_o), withNthWorkspace W.greedyView 1)
-                , ((modm, xK_e), withNthWorkspace W.greedyView 2)
-                , ((modm, xK_u), withNthWorkspace W.greedyView 3)
-                , ((modm, xK_h), withNthWorkspace W.greedyView 4)
-                , ((modm, xK_t), withNthWorkspace W.greedyView 4)
-                , ((modm, xK_n), withNthWorkspace W.greedyView 6)
-                , ((modm, xK_s), withNthWorkspace W.greedyView 7)
+                [ (singleKey xK_a, withNthWorkspace W.greedyView 0)
+                , (singleKey xK_o, withNthWorkspace W.greedyView 1)
+                , (singleKey xK_e, withNthWorkspace W.greedyView 2)
+                , (singleKey xK_u, withNthWorkspace W.greedyView 3)
+                , (singleKey xK_h, withNthWorkspace W.greedyView 4)
+                , (singleKey xK_t, withNthWorkspace W.greedyView 4)
+                , (singleKey xK_n, withNthWorkspace W.greedyView 6)
+                , (singleKey xK_s, withNthWorkspace W.greedyView 7)
                 ]
             )
             -- Dynamic workspaces
@@ -221,11 +244,37 @@ type WorkspaceTag = String
 --   --   Just x' -> renameWorkspaceByName $ "("++show (x' + 1) ++") " ++ wId
 --   --   Nothing -> renameWorkspaceByName "erm"
 
+w1, w2, w3 :: KeySym
+windowSelection  :: Column -> Int -> KeySym
+w1 = xK_f
+w2 = xK_d
+w3 = xK_b
+windowSelection Column.Left 1 = xK_u
+windowSelection Column.Left 2 = xK_e
+windowSelection Column.Left 3 = xK_o
+windowSelection Column.Left 4 = xK_a
+windowSelection Column.Left 5 = xK_p
+windowSelection Column.Left 6 = xK_period
+windowSelection Column.Left 7 = xK_comma
+windowSelection Column.Left 8 = xK_apostrophe
+windowSelection Column.Right 1 = xK_h
+windowSelection Column.Right 2 = xK_t
+windowSelection Column.Right 3 = xK_n
+windowSelection Column.Right 4 = xK_s
+windowSelection Column.Right 5 = xK_g
+windowSelection Column.Right 6 = xK_c
+windowSelection Column.Right 7 = xK_r
+windowSelection Column.Right 8 = xK_l
+windowSelection _ _ = xK_u
+
 singleKey :: b -> (KeyMask, b)
 singleKey = (,) noModMask
 
 devSessionPrompt :: X ()
 devSessionPrompt = spawn "rofi -normal-window -show fb -modi fb:~/Scripts/rofi/xmonadRofi.sh"
+
+showClipboardApp :: X ()
+showClipboardApp = spawn "~/ScriptsVcs/showClipboard.sh"
 
 devWorkspacePrompt :: X ()
 devWorkspacePrompt = do
