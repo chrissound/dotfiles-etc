@@ -1,0 +1,29 @@
+[user]
+	name = Chris Stryczynski
+	email = chris@soundshare.co.uk
+[push]
+	default = matching
+[core]
+	autocrlf = input
+	editor = nvim
+	excludesfile = /home/chris/.gitignoreglobal
+	pager = diff-so-fancy | less --tabs=4 -RFX
+[color "diff-highlight"]
+	oldHighlight = red bold 52
+	newNormal = green bold
+	newHighlight = green bold 22
+	oldNormal = red bold
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+[color "diff"]
+	meta = 227
+	frag = magenta bold
+	commit = 227 bold
+	old = red bold
+	new = green bold
+	whitespace = red reverse
+[color]
+	ui = true
