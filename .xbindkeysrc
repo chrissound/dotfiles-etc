@@ -57,6 +57,6 @@
 ##################################
 # End of xbindkeys configuration #
 ##################################
-"~/Scripts/screenshot.sh"
+"~/ScriptsVcs/screenshot.sh"
     m:0x0 + c:107
     Print
